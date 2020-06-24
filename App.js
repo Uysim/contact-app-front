@@ -6,7 +6,7 @@ import {
   FlatList,
   Button,
   ActivityIndicator,
-  ScrollView
+  VirtualizedList
 } from 'react-native';
 import Contact from './src/Contact';
 import axios from 'axios';
@@ -19,14 +19,29 @@ const client = axios.create({
   }
 });
 
+
 export default function App() {
   const [page, setPage] = useState(1);
   const [contacts, setContacts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSynce, setLastSynce] = useState(new Date());
 
+
+  const upsert = (data, new_data)=>{
+    _.forEach(new_data, (item)=>{
+      const index = _.findIndex(data, { id: item.id })
+      if(index == -1){
+        data.push(item)
+      }else{
+        data[index] = item
+      }
+    })
+
+    return data;
+
+  }
+
   const fetchData = ()=>{
-    // console.log(isLoading);
     if(isLoading){ return }
 
     setIsLoading(true);
@@ -37,7 +52,7 @@ export default function App() {
       }
     })
     .then((response) => {
-      const data = _.unionBy(contacts, response.data.contacts, 'id');
+      const data = upsert(contacts, response.data.contacts)
       setContacts(data);
     })
     .catch((error) => console.error(error))
@@ -54,7 +69,7 @@ export default function App() {
       }
     })
     .then((response) => {
-      const data = _.unionBy(contacts, response.data.contacts, 'id');
+      const data = upsert(contacts, response.data.contacts)
       setContacts(data);
     })
     .catch((error) => console.error(error))
@@ -67,25 +82,20 @@ export default function App() {
     fetchData();
   }, []);
 
-
   return (
     <View style={styles.container}>
       <Button title="Sync" onPress={()=> sync() } />
-      <ScrollView
+      <FlatList
         style={styles.list}
-        onMomentumScrollEnd={()=> fetchData()}
-      >
-        <FlatList
-
-          data={contacts}
-          renderItem={({ item }) => (
-            <Contact
-              name={item.name}
-            />
-          )}
-          keyExtractor={item => item.id.toString()}
-        />
-      </ScrollView>
+        data={contacts}
+        renderItem={({ item }) => (
+          <Contact
+            {...item}
+          />
+        )}
+        keyExtractor={item => item.id.toString()}
+        onEndReached={()=> fetchData()}
+      />
       {
         (isLoading) ? (
           <ActivityIndicator/>
